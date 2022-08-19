@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Shorten url{% endblock %}
+
+{% block content %}
+    <center>
+        <h1>Here`s the shorten url</h1>
+        <hr>
+        <h2>http://127.0.0.1:5000/{{short_url_display}}</h2>
+        <hr>
+        <a href="http://127.0.0.1:5000/", class="btn btn-primary">Back to the main page</a>
+        <hr>
+    </center>
+{% endblock %}
