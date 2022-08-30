@@ -19,20 +19,6 @@ class Urls(db.Model):
         self.long = long
         self.short = short
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-class User(db.Model):
-    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
-    username = db.Column('username', db.String(29), unique = True, nullable = False)
-    password = db.Column('password', db.String(15), nullable = False)
-    def __init__(self, username, password):
-        self.username = username
-        self.password = password
-
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///daycount.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 class Daycount(db.Model):
     sp_id = db.Column('sp_id', db.Integer, primary_key = True)
     sun = db.Column('sun', db.String())
