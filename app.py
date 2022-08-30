@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 import string, random
-from wtform_fields import *
 
 app = Flask(__name__)
 
@@ -18,24 +17,6 @@ class Urls(db.Model):
     def __init__(self, long, short):
         self.long = long
         self.short = short
-
-class Daycount(db.Model):
-    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
-    sun = db.Column('sun', db.String())
-    mon = db.Column('mon', db.String())
-    tue = db.Column('tue', db.String())
-    wed = db.Column('wed', db.String())
-    thu = db.Column('thu', db.String())
-    fri = db.Column('fri', db.String())
-    sat = db.Column('sat', db.String())
-    def __init__(self, sun, mon, tue, wed, thu, fri , sat):
-        self.sun = sun
-        self.mon = mon
-        self.tue = tue
-        self.wed = wed
-        self.thu = thu
-        self.fri = fri
-        self.sat = sat
 
 @app.before_first_request
 def create_table():
