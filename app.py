@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
-import string, random
+from sqlalchemy import DateTime, func, Date
+import string, random, datetime
+from datetime import date, timedelta
 
 app = Flask(__name__)
 
@@ -18,10 +20,40 @@ class Urls(db.Model):
         self.long = long
         self.short = short
 
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///analytics.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+class Day(db.Model):
+    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
+    datte = db.Column('datte', Date, default=date.today())
+    counter = db.Column('counter', db.Integer())
+    def __init__(self, counter):
+        self.counter = counter
+
+class Clicks(db.Model):
+    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
+    datte = db.Column('datte', Date, default=date.today() - timedelta(1))
+    summary = db.Column('summary', db.Integer())
+    def __init__(self, summary):
+        self.summary = summary
+
 @app.before_first_request
 def create_table():
     db.create_all()
 
+def counting():
+    day = Day(counter = 1)
+    db.session.add(day)
+    db.session.commit()
+
+def checking():
+    ago = date.today() - timedelta(1)
+    daying = Day.query.filter_by(datte = ago).first()
+    if daying:
+        chck = Day.query.where(Day.datte == ago).count()
+        db.session.add(Clicks(summary = chck))
+        db.session.commit()
+    
 def shorten_url():
     while True:
         j = []
@@ -32,14 +64,6 @@ def shorten_url():
         short_url = Urls.query.filter_by(short = previos).first()
         if not short_url:
             return previos
-
-@app.route('/static')
-def countnumbers():
-    if 'numbers' in session:
-        session['numbers'] = session.get('numbers') + 1
-    else:
-        session['numbers'] = 1
-    return render_template('static.html')
 
 @app.route('/', methods=['POST','GET'])
 def home():
@@ -65,11 +89,15 @@ def longurl():
 def display_short_url(url):
     return render_template('shorturl.html', short_url_display = url)
 
+@app.route('/static')
+def statistic():
+    return render_template('static.html')
+
 @app.route('/<short_url>')
 def redirection(short_url):
     long_url = Urls.query.filter_by(short=short_url).first()
     if long_url:
-        countnumbers()
+        counting()
         return redirect(long_url.long)
     else:
         return f'<h2>Ops! This url doesn`t exist</h2>'
