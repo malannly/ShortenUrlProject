@@ -48,12 +48,14 @@ def counting():
 
 def checking():
     ago = date.today() - timedelta(1)
-    daying = Day.query.filter_by(datte = ago).first()
-    if daying:
-        chck = Day.query.where(Day.datte == ago).count()
-        db.session.add(Clicks(summary = chck))
-        db.session.commit()
-    
+    noago = Clicks.query.filter_by(datte = ago).first()
+    if not noago:
+        daying = Day.query.filter_by(datte = ago).first() # check if there were using last day
+        if daying:
+            chck = Day.query.where(Day.datte == ago).count() # count last day using
+            db.session.add(Clicks(summary = chck))
+            db.session.commit()
+
 def shorten_url():
     while True:
         j = []
@@ -67,6 +69,7 @@ def shorten_url():
 
 @app.route('/', methods=['POST','GET'])
 def home():
+    checking()
     return render_template('home.html')
 
 @app.route('/longurl', methods=['POST','GET'])
