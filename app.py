@@ -6,55 +6,30 @@ from datetime import date, timedelta
 
 app = Flask(__name__)
 
+db = SQLAlchemy(app)
 app.config['SECRET_KEY'] = 'vnoreh42zjn958berng244on63r45vk5486njb'
-
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db = SQLAlchemy(app)
 
 class Urls(db.Model):
     sp_id = db.Column('sp_id', db.Integer, primary_key = True)
     long = db.Column('long', db.String())
     short = db.Column('short', db.String(8))
+    days = db.relationship('Day', backref='urls')
     def __init__(self, long, short):
         self.long = long
         self.short = short
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///analytics.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
 class Day(db.Model):
-    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
-    datte = db.Column('datte', Date, default=date.today())
-    counter = db.Column('counter', db.Integer())
-    def __init__(self, counter):
-        self.counter = counter
-
-class Clicks(db.Model):
-    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
-    datte = db.Column('datte', Date, default=date.today() - timedelta(1))
-    summary = db.Column('summary', db.Integer())
+    first_id = db.Column(db.Integer, primary_key = True)
+    url_id = db.Column(db.Integer, db.ForeignKey('urls.sp_id'))
+    summary = db.Column(db.Integer())
     def __init__(self, summary):
         self.summary = summary
 
 @app.before_first_request
 def create_table():
     db.create_all()
-
-def counting():
-    day = Day(counter = 1)
-    db.session.add(day)
-    db.session.commit()
-
-def checking():
-    ago = date.today() - timedelta(1)
-    noago = Clicks.query.filter_by(datte = ago).first()
-    if not noago:
-        daying = Day.query.filter_by(datte = ago).first() # check if there were using last day
-        if daying:
-            chck = Day.query.where(Day.datte == ago).count() # count last day using
-            db.session.add(Clicks(summary = chck))
-            db.session.commit()
 
 def shorten_url():
     while True:
@@ -69,7 +44,6 @@ def shorten_url():
 
 @app.route('/', methods=['POST','GET'])
 def home():
-    checking()
     return render_template('home.html')
 
 @app.route('/longurl', methods=['POST','GET'])
@@ -90,6 +64,9 @@ def longurl():
 
 @app.route('/display/<url>')
 def display_short_url(url):
+    adding = Day(0)
+    db.session.add(adding)
+    db.session.commit()
     return render_template('shorturl.html', short_url_display = url)
 
 @app.route('/static')
@@ -100,7 +77,6 @@ def statistic():
 def redirection(short_url):
     long_url = Urls.query.filter_by(short=short_url).first()
     if long_url:
-        counting()
         return redirect(long_url.long)
     else:
         return f'<h2>Ops! This url doesn`t exist</h2>'
