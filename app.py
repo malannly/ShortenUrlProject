@@ -39,6 +39,9 @@ def shorten_url():
             j.append(str(random.randint(0,9)))
         previos = ''.join(j)
         short_url = Urls.query.filter_by(short = previos).first()
+        adding = Day(0)
+        db.session.add(adding)
+        db.session.commit()
         if not short_url:
             return previos
 
@@ -64,9 +67,6 @@ def longurl():
 
 @app.route('/display/<url>')
 def display_short_url(url):
-    adding = Day(0)
-    db.session.add(adding)
-    db.session.commit()
     return render_template('shorturl.html', short_url_display = url)
 
 @app.route('/static')
