@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
 import string, random, datetime
 from datetime import date, timedelta
+from sqlalchemy.orm import backref
 
 app = Flask(__name__)
 
@@ -12,20 +13,22 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 class Urls(db.Model):
-    sp_id = db.Column('sp_id', db.Integer, primary_key = True)
+    id = db.Column('id', db.Integer, primary_key = True)
     long = db.Column('long', db.String())
     short = db.Column('short', db.String(8))
-    days = db.relationship('Day', backref='urls')
+    days = db.relationship('Day', backref='url', uselist=False)
     def __init__(self, long, short):
         self.long = long
         self.short = short
 
 class Day(db.Model):
-    first_id = db.Column(db.Integer, primary_key = True)
-    url_id = db.Column(db.Integer, db.ForeignKey('urls.sp_id'))
+    id = db.Column(db.Integer, primary_key = True)
     summary = db.Column(db.Integer())
-    def __init__(self, summary):
+    urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable=False)
+    urls = db.relationship('Urls')
+    def __init__(self, summary, url):
         self.summary = summary
+        self.url = url
 
 @app.before_first_request
 def create_table():
@@ -39,9 +42,6 @@ def shorten_url():
             j.append(str(random.randint(0,9)))
         previos = ''.join(j)
         short_url = Urls.query.filter_by(short = previos).first()
-        adding = Day(0)
-        db.session.add(adding)
-        db.session.commit()
         if not short_url:
             return previos
 
@@ -59,7 +59,9 @@ def longurl():
         else:
             short_url = shorten_url()
             new_url = Urls(url_recieved, short_url)
+            adding = Day(summary=0, url=new_url)
             db.session.add(new_url)
+            db.session.add(adding)
             db.session.commit()
             return redirect(url_for('display_short_url',url = short_url))
     else:
