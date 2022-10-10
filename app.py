@@ -78,6 +78,7 @@ def statistic():
 @app.route('/<short_url>')
 def redirection(short_url):
     long_url = Urls.query.filter_by(short=short_url).first()
+    longer = Urls.query.where(Urls.short == short_url)
     if long_url:
         return redirect(long_url.long)
     else:
