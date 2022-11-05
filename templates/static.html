@@ -3,9 +3,15 @@
 {% block title %}Static{% endblock %}
 
 {% block content %}
-    <center>
-        <h1>For the first time it will be nothing here.</h1>
+
+<center>
+    <form action="#", method="post">
+        <input type="url" name="cn" pattern="https://.*" placeholder="http://127.0.0.1:5000/" required>
         <br>
-        <h2>Numbers: {{session['numbers']}}</h2>
-    </center>
+        <br>
+        <input type="submit" value="Enter" class="btn btn-primary">
+    </form>
+    <br>
+    <h3>{{counter}}</h3>
+</center>
 {% endblock %}

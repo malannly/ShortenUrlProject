@@ -3,14 +3,13 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
 import string, random, datetime
 from datetime import date, timedelta
-from sqlalchemy.orm import backref
+from sqlalchemy.exc import IntegrityError
 
 app = Flask(__name__)
-
-db = SQLAlchemy(app)
-app.config['SECRET_KEY'] = 'vnoreh42zjn958berng244on63r45vk5486njb'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
 
 class Urls(db.Model):
     id = db.Column('id', db.Integer, primary_key = True)
@@ -22,12 +21,11 @@ class Urls(db.Model):
         self.short = short
 
 class Day(db.Model):
-    id = db.Column(db.Integer, primary_key = True)
-    summary = db.Column(db.Integer())
+    id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable=False)
+    date = db.Column(db.Date, default = date.today())
     urls = db.relationship('Urls')
-    def __init__(self, summary, url):
-        self.summary = summary
+    def __init__(self, url):
         self.url = url
 
 @app.before_first_request
@@ -59,9 +57,7 @@ def longurl():
         else:
             short_url = shorten_url()
             new_url = Urls(url_recieved, short_url)
-            adding = Day(summary=0, url=new_url)
             db.session.add(new_url)
-            db.session.add(adding)
             db.session.commit()
             return redirect(url_for('display_short_url',url = short_url))
     else:
@@ -71,15 +67,33 @@ def longurl():
 def display_short_url(url):
     return render_template('shorturl.html', short_url_display = url)
 
-@app.route('/static')
+@app.route('/static', methods = ['POST','GET'])
 def statistic():
-    return render_template('static.html')
+    if request.method == 'POST':
+        link_recieved = request.form['cn']
+        link = Urls.query.filter_by(long = link_recieved).first()
+        if link:
+            founded = Urls.query.filter(Urls.long == link).first()
+            finding = Day.query.where(Day.urls_id == founded.id).count()
+            return render_template('static.html', counter = finding)
+        else:
+            return f'<h2>Ops! This url doesn`t exist</h2>'
+    else:
+        return render_template('static.html')
 
 @app.route('/<short_url>')
 def redirection(short_url):
     long_url = Urls.query.filter_by(short=short_url).first()
-    longer = Urls.query.where(Urls.short == short_url)
+    adding = Day(url=long_url)
     if long_url:
+        try:
+            db.session.add(adding)
+            db.session.commit()
+        except IntegrityError:
+            db.session.rollback()
+            db.session.add(adding)
+            db.session.commit()
+            return redirect(long_url.long)
         return redirect(long_url.long)
     else:
         return f'<h2>Ops! This url doesn`t exist</h2>'

@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Shorting url{% endblock %}
+
+{% block content %}
+<center>
+    <h1>Here you can reduce your url</h1>
+    <br>
+    <form action="#", method="post">
+        <label for="url">Enter url:</label>
+        <input type="url" name="nm" pattern="https://.*" placeholder="http://127.0.0.1:5000" required>
+        <br>
+        <br>
+        <input type="submit" value="Enter" class="btn btn-primary">
+    </form>
+</center>
+{% endblock %}
