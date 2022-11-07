@@ -73,11 +73,11 @@ def statistic():
         link_recieved = request.form['cn']
         link = Urls.query.filter_by(long = link_recieved).first()
         if link:
-            founded = Urls.query.filter(Urls.long == link).first()
+            founded = Urls.query.where(Urls.long == link_recieved).first()
             finding = Day.query.where(Day.urls_id == founded.id).count()
             return render_template('static.html', counter = finding)
         else:
-            return f'<h2>Ops! This url doesn`t exist</h2>'
+            return render_template('createmessage.html')
     else:
         return render_template('static.html')
 
