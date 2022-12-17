@@ -43,6 +43,17 @@ def shorten_url():
         if not short_url:
             return previos
 
+def url_count():
+    n = 0
+    maxi = db.session.query(db.func.max(Urls.id)).scalar()
+    url_dict = {}
+    for i in range(maxi):
+        n += 1
+        url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+        url_count = Day.query.where(Day.urls_id == n).count() # count the url
+        url_dict[url_name] = url_count
+    url_dict_count = url_dict
+
 @app.route('/', methods=['POST','GET'])
 def home():
     return render_template('home.html')
@@ -69,17 +80,8 @@ def display_short_url(url):
 
 @app.route('/static', methods = ['POST','GET'])
 def statistic():
-    if request.method == 'POST':
-        link_recieved = request.form['cn']
-        link = Urls.query.filter_by(long = link_recieved).first()
-        if link:
-            founded = Urls.query.where(Urls.long == link_recieved).first()
-            finding = Day.query.where(Day.urls_id == founded.id).count()
-            return render_template('static.html', counter = finding)
-        else:
-            return render_template('createmessage.html')
-    else:
-        return render_template('static.html')
+    url_count_show = url_count()
+    return render_template('static.html', url_count_show = url_count_show )
 
 @app.route('/<short_url>')
 def redirection(short_url):

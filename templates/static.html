@@ -4,14 +4,36 @@
 
 {% block content %}
 
-<center>
-    <form action="#", method="post">
-        <input type="url" name="cn" pattern="https://.*" placeholder="http://127.0.0.1:5000/" required>
-        <br>
-        <br>
-        <input type="submit" value="Enter" class="btn btn-primary">
-    </form>
-    <br>
-    <h3>{{counter}}</h3>
-</center>
+<table class="table table-striped">
+    <tr class="bg-info">
+        <th>url</th>
+        <th>counter</th>
+    </tr>
+    <tbody id="myTable">
+
+    </tbody>
+</table>
+
+<script>
+    var myArray = [
+    {'url': 'url_name' , 'counter':'18'}
+    ]
+
+    buildTable(myArray)
+
+    function buildTable(data){
+        var table = document.getElementById('myTable')
+        
+        for (var i = 0; i < data.length; i++){
+            var row = `<tr>
+                            <td>${data[i].url}</td>
+                            <td>${data[i].counter}</td>
+                    </tr>`
+            table.innerHTML += row
+        }
+    }
+</script>
+
+{“statistics”:[{“url”: “google.com”, “count”: 10}]}
+
 {% endblock %}
