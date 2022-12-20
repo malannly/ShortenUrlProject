@@ -1,7 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
-import string, random, datetime
+import string, random, datetime, json
 from datetime import date, timedelta
 from sqlalchemy.exc import IntegrityError
 
@@ -43,17 +43,6 @@ def shorten_url():
         if not short_url:
             return previos
 
-def url_count():
-    n = 0
-    maxi = db.session.query(db.func.max(Urls.id)).scalar()
-    url_dict = {}
-    for i in range(maxi):
-        n += 1
-        url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
-        url_count = Day.query.where(Day.urls_id == n).count() # count the url
-        url_dict[url_name] = url_count
-    url_dict_count = url_dict
-
 @app.route('/', methods=['POST','GET'])
 def home():
     return render_template('home.html')
@@ -80,8 +69,17 @@ def display_short_url(url):
 
 @app.route('/static', methods = ['POST','GET'])
 def statistic():
-    url_count_show = url_count()
-    return render_template('static.html', url_count_show = url_count_show )
+    n = 0
+    maxi = db.session.query(db.func.max(Urls.id)).scalar()
+    url_dict = {}
+    for i in range(maxi):
+        n += 1
+        url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+        if not url_name in url_dict:
+            url_counts = Day.query.where(Day.urls_id == n).count() # count the url
+            url_dict[url_name] = url_counts
+    url_final = url_dict
+    return render_template('static.html', url_final = url_final)
 
 @app.route('/<short_url>')
 def redirection(short_url):

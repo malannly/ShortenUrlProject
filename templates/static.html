@@ -4,36 +4,8 @@
 
 {% block content %}
 
-<table class="table table-striped">
-    <tr class="bg-info">
-        <th>url</th>
-        <th>counter</th>
-    </tr>
-    <tbody id="myTable">
-
-    </tbody>
-</table>
-
-<script>
-    var myArray = [
-    {'url': 'url_name' , 'counter':'18'}
-    ]
-
-    buildTable(myArray)
-
-    function buildTable(data){
-        var table = document.getElementById('myTable')
-        
-        for (var i = 0; i < data.length; i++){
-            var row = `<tr>
-                            <td>${data[i].url}</td>
-                            <td>${data[i].counter}</td>
-                    </tr>`
-            table.innerHTML += row
-        }
-    }
-</script>
-
-{“statistics”:[{“url”: “google.com”, “count”: 10}]}
+<p>The count table</p>
+<br>
+<p>{{url_final}}</p>
 
 {% endblock %}
