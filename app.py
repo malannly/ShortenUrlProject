@@ -67,19 +67,60 @@ def longurl():
 def display_short_url(url):
     return render_template('shorturl.html', short_url_display = url)
 
-@app.route('/static', methods = ['POST','GET'])
-def statistic():
+@app.route('/staticshort')
+def statisticshort():
     n = 0
     maxi = db.session.query(db.func.max(Urls.id)).scalar()
-    url_dict = {}
+    url_tuple = ()
+    url_list = []
+    for i in range(maxi):
+        n += 1
+        url_name =  db.session.query(Urls.short).where(Urls.id == n).scalar() # the name of the link
+        if not url_name in url_tuple:
+            url_counts = Day.query.where(Day.urls_id == n).count() # count the url
+            names = 'http://127.0.0.1:5000/'+url_name
+            url_tuple = (names,url_counts)
+            url_list.append(url_tuple)
+        url_tuple_final = tuple(url_list)
+    headings = ('Name','Counts')
+    return render_template('staticshort.html', headings = headings, url_tuple_final = url_tuple_final)
+
+@app.route('/staticlong')
+def statisticlong():
+    n = 0
+    maxi = db.session.query(db.func.max(Urls.id)).scalar()
+    url_tuple = ()
+    url_list = []
     for i in range(maxi):
         n += 1
         url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
-        if not url_name in url_dict:
+        if not url_name in url_tuple:
             url_counts = Day.query.where(Day.urls_id == n).count() # count the url
-            url_dict[url_name] = url_counts
-    url_final = url_dict
-    return render_template('static.html', url_final = url_final)
+            url_name = url_name[0:21]+'...'
+            url_tuple = (url_name,url_counts)
+            url_list.append(url_tuple)
+        url_tuple_final = tuple(url_list)
+    headings = ('Name','Counts')
+    return render_template('staticlong.html', headings = headings, url_tuple_final = url_tuple_final)
+
+@app.route('/staticsimple')
+def statisticsimple():
+    n = 0
+    maxi = db.session.query(db.func.max(Urls.id)).scalar()
+    url_dict = {}
+    url_dict['url']=list()
+    url_dict['counts']=list()
+    for i in range(maxi):
+        n += 1
+        url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+        if not url_name in url_dict['url']:
+            url_count = Day.query.where(Day.urls_id == n).count() # count the url
+            url_counts = str(url_count)
+            url_name = url_name[0:21]+'...'
+        url_dict['url'].append(url_name)
+        url_dict['counts'].append(url_counts)
+    url_dict = zip(url_dict['url'], url_dict['counts'])
+    return render_template('staticsimple.html', url_dict = url_dict)
 
 @app.route('/<short_url>')
 def redirection(short_url):

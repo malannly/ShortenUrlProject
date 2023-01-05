@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+
+{% block title %}Static{% endblock %}
+
+{% block content %}
+
+<table>
+    {% for row in url_dict %}
+        <tr>
+            <td>{{ row[0]|tojson|safe }}</td>
+            <td>{{ row[1] }}</td>
+        </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
