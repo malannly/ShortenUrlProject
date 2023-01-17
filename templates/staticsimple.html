@@ -4,13 +4,20 @@
 
 {% block content %}
 
-<table>
-    {% for row in url_dict %}
+<center>
+    <table border="1">
         <tr>
-            <td>{{ row[0]|tojson|safe }}</td>
-            <td>{{ row[1] }}</td>
+            <th>name</th>
+            <th>counts</th>
         </tr>
-    {% endfor %}
-</table>
+        {% for row in url_dict %}
+            <tr>
+                <td><a href="{{row[0]}}" title="{{row[0]}}">{{ row[0][0:21]|tojson }}...</a></td> 
+                <!-- tojson - returns string (строку) formated -->
+                <td>{{ row[1] }}</td>
+            </tr>
+        {% endfor %}
+    </table>
+</center>
 
 {% endblock %}
