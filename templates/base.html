@@ -13,6 +13,22 @@
         {% include 'header.html'%}
     </header>
     <br>
+    <center>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                
+                Category: {{ messages[0][0] }}
+                {{ messages[0][1] }}
+
+            {% endif %}
+        {% endwith %}
+    </center>
+
     {% block content %}
+
     {% endblock %}
+    <br>
+    <footer>
+        {% include 'footer.html' %}
+    </footer>
 </body>

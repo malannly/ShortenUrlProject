@@ -11,7 +11,12 @@
         <input type="url" name="nm" pattern="https://.*" placeholder="http://127.0.0.1:5000" required>
         <br>
         <br>
-        <input type="submit" value="Enter" class="btn btn-primary">
+        <div class="col align-self-center">
+            <input type="submit" value="Enter" class="btn btn-primary">
+            <div class="btn btn-primary mx-3">
+                <a href="http://127.0.0.1:5000/logout" style="color: rgb(255, 255, 255);">Logout</a>
+            </div>
+        </div>
     </form>
 </center>
 {% endblock %}

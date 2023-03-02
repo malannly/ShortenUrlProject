@@ -1,15 +1,23 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
 import string, random, datetime, json
 from datetime import date, timedelta
 from sqlalchemy.exc import IntegrityError
+from passlib.hash import pbkdf2_sha256
+from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
+from wtform_fields import *
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+app.config['SECRET_KEY'] = 'dfghjkjhuisegrhbnkjir'
 db = SQLAlchemy(app)
+
+# building / configurate flask login
+login = LoginManager(app)
+login.init_app(app)
 
 class Urls(db.Model):
     id = db.Column('id', db.Integer, primary_key = True)
@@ -28,6 +36,24 @@ class Day(db.Model):
     def __init__(self, url):
         self.url = url
 
+class User(UserMixin, db.Model):
+    id = db.Column('id', db.Integer, primary_key = True)
+    username = db.Column('username', db.String(25), unique = True, nullable = False)
+    password = db.Column('password', db.String(), nullable = False)
+    def __init__(self, username, password):
+        self.username = username
+        self.password = password
+
+class Connection(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+    urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable = False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
+    urls = db.relationship('Urls')
+    user = db.relationship('User')
+    def __init__(self, url, user):
+        self.url = url
+        self.user = user
+
 @app.before_first_request
 def create_table():
     db.create_all()
@@ -43,25 +69,76 @@ def shorten_url():
         if not short_url:
             return previos
 
+@login.user_loader
+def load_user(id):
+    return User.query.get(int(id)) # hets user's id, has to be an integer
+
 @app.route('/', methods=['POST','GET'])
 def home():
-    return render_template('home.html')
+
+    reg_form = RegistrationForm()
+
+    if reg_form.validate_on_submit():
+        username = reg_form.username.data
+        password = reg_form.password.data
+        
+        hashed_password = pbkdf2_sha256.hash(password) # hash the password
+        
+        user = User(username = username, password = hashed_password)
+        db.session.add(user)
+        db.session.commit() # adding user
+        # user registration was succesful
+        flash('Registered successfully. Please login.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('home.html', form = reg_form)
+
+@app.route('/login', methods=['POST','GET'])
+def login():
+
+    login_form = LoginForm()
+
+    if login_form.validate_on_submit():
+        user_object = User.query.filter_by(username = login_form.username.data).first()
+        login_user(user_object)
+        if current_user.is_authenticated:
+            return redirect(url_for('longurl'))
+
+    return render_template('login.html', form = login_form)
+
+@app.route('/logout', methods=['GET'])
+def logout():
+
+    logout_user()
+    flash('You have logged out successfully', 'success')
+    return redirect(url_for('login'))
 
 @app.route('/longurl', methods=['POST','GET'])
+#@login_required
 def longurl():
-    if request.method == 'POST':
-        url_recieved = request.form['nm']
-        found_url = Urls.query.filter_by(long = url_recieved).first()
-        if found_url:
-            return redirect(url_for('display_short_url',url = found_url.short))
+        if request.method == 'POST':
+            url_recieved = request.form['nm']
+            found_url = Urls.query.filter_by(long = url_recieved).first()
+            if found_url:
+                return redirect(url_for('display_short_url',url = found_url.short))
+            else:
+                short_url = shorten_url()
+                new_url = Urls(url_recieved, short_url)
+                db.session.add(new_url)
+                db.session.commit()
+                #url_con = Urls.query.filter_by(short = short_url).first()
+                #user_number = User.query.get(str(id))
+                #user_name = User.query.where(User.id == user_number).scalar()
+                #new_user = Connection(url = url_con ,user = user_name)
+                #db.session.add(new_user)
+                #db.session.commit()
+                return redirect(url_for('display_short_url',url = short_url))
         else:
-            short_url = shorten_url()
-            new_url = Urls(url_recieved, short_url)
-            db.session.add(new_url)
-            db.session.commit()
-            return redirect(url_for('display_short_url',url = short_url))
-    else:
+            if not current_user.is_authenticated:
+                flash('Please login.', 'danger')
+                return redirect(url_for('login'))
         return render_template('longurl.html')
+            
 
 @app.route('/display/<url>')
 def display_short_url(url):
@@ -83,6 +160,7 @@ def statisticsimple():
         url_dict['url'].append(url_name)
         url_dict['counts'].append(url_counts)
     url_dict = zip(url_dict['url'], url_dict['counts']) # groups into tapple
+
     return render_template('staticsimple.html', url_dict = url_dict)
 
 @app.route('/<short_url>')
