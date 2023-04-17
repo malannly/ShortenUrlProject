@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
-import string, random, datetime, json
+import string, random, datetime, json, socket
 from datetime import date, timedelta
 from sqlalchemy.exc import IntegrityError
 from passlib.hash import pbkdf2_sha256
@@ -40,19 +40,21 @@ class User(UserMixin, db.Model):
     id = db.Column('id', db.Integer, primary_key = True)
     username = db.Column('username', db.String(25), unique = True, nullable = False)
     password = db.Column('password', db.String(), nullable = False)
+    connections = db.relationship('Connection', backref='users', uselist=False)
     def __init__(self, username, password):
         self.username = username
         self.password = password
 
 class Connection(db.Model):
     id = db.Column(db.Integer, primary_key = True)
-    urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable = False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
-    urls = db.relationship('Urls')
+    ip_add = db.Column(db.String())
+    rand_str = db.Column(db.String(), unique = True)
     user = db.relationship('User')
-    def __init__(self, url, user):
-        self.url = url
-        self.user = user
+    def __init__(self, users, ip_add, rand_str):
+        self.users = users
+        self.ip_add = ip_add
+        self.rand_str = rand_str
 
 @app.before_first_request
 def create_table():
@@ -68,6 +70,17 @@ def shorten_url():
         short_url = Urls.query.filter_by(short = previos).first()
         if not short_url:
             return previos
+        
+def rand_strs():
+    while True:
+        j = []
+        for i in range(19):
+            j.append(random.choice(string.ascii_uppercase + string.ascii_lowercase))
+            j.append(str(random.randint(0,9)))
+        previos = ''.join(j)
+        rand_srting = Connection.query.filter_by(rand_str = previos).first()
+        if not rand_srting:
+            return previos    
 
 @login.user_loader
 def load_user(id):
@@ -75,7 +88,7 @@ def load_user(id):
 
 @app.route('/', methods=['POST','GET'])
 def home():
-
+    
     reg_form = RegistrationForm()
 
     if reg_form.validate_on_submit():
@@ -83,12 +96,21 @@ def home():
         password = reg_form.password.data
         
         hashed_password = pbkdf2_sha256.hash(password) # hash the password
-        
+
         user = User(username = username, password = hashed_password)
         db.session.add(user)
         db.session.commit() # adding user
         # user registration was succesful
-        flash('Registered successfully. Please login.', 'success')
+        
+        if user:
+            ip_addr = socket.gethostbyname(socket.gethostname()) 
+            #ip_address = request.remote_addr #gets ip of the web-site
+            rnd_str = rand_strs()
+            reg_check = Connection(users = user, ip_add = ip_addr, rand_str = rnd_str)
+            db.session.add(reg_check)
+            db.session.commit()
+
+        flash('Registered successfully. Please login.', 'success' + ip_addr)
         return redirect(url_for('login'))
 
     return render_template('home.html', form = reg_form)
@@ -102,6 +124,10 @@ def login():
         user_object = User.query.filter_by(username = login_form.username.data).first()
         login_user(user_object)
         if current_user.is_authenticated:
+            
+            ip_address = socket.gethostbyname(socket.gethostname())
+
+
             return redirect(url_for('longurl'))
 
     return render_template('login.html', form = login_form)
@@ -126,12 +152,6 @@ def longurl():
                 new_url = Urls(url_recieved, short_url)
                 db.session.add(new_url)
                 db.session.commit()
-                #url_con = Urls.query.filter_by(short = short_url).first()
-                #user_number = User.query.get(str(id))
-                #user_name = User.query.where(User.id == user_number).scalar()
-                #new_user = Connection(url = url_con ,user = user_name)
-                #db.session.add(new_user)
-                #db.session.commit()
                 return redirect(url_for('display_short_url',url = short_url))
         else:
             if not current_user.is_authenticated:
@@ -146,6 +166,7 @@ def display_short_url(url):
 
 @app.route('/staticsimple')
 def statisticsimple():
+    #if request.method == 'POST':
     n = 0
     maxi = db.session.query(db.func.max(Urls.id)).scalar()
     url_dict = {}
@@ -162,6 +183,11 @@ def statisticsimple():
     url_dict = zip(url_dict['url'], url_dict['counts']) # groups into tapple
 
     return render_template('staticsimple.html', url_dict = url_dict)
+
+"""    else:
+        if not current_user.is_authenticated:
+            flash('Please login.', 'danger')
+            return redirect(url_for('login'))"""
 
 @app.route('/<short_url>')
 def redirection(short_url):
