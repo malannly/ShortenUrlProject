@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import DateTime, func, Date
 import string, random, datetime, json, socket
@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from passlib.hash import pbkdf2_sha256
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from wtform_fields import *
+import ipapi
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
@@ -103,8 +104,7 @@ def home():
         # user registration was succesful
         
         if user:
-            ip_addr = socket.gethostbyname(socket.gethostname()) 
-            #ip_address = request.remote_addr #gets ip of the web-site
+            ip_addr = request.remote_addr
             rnd_str = rand_strs()
             reg_check = Connection(users = user, ip_add = ip_addr, rand_str = rnd_str)
             db.session.add(reg_check)
@@ -122,14 +122,18 @@ def login():
 
     if login_form.validate_on_submit():
         user_object = User.query.filter_by(username = login_form.username.data).first()
-        login_user(user_object)
+        login_user(user_object, remember = True)
         if current_user.is_authenticated:
+            ip_addr = request.remote_addr # gets the ip
+            user_check = Connection.query.filter_by(ip_add = ip_addr).first() # checks if there is this ip
+            user_name = User.query.where(User.username == login_form.username.data).first()
+            user_str = Connection.query.where(Connection.user_id == user_name.id).first()
+            user_str_check = user_str.rand_str
+            if user_check:
+                return redirect(url_for('longurl', user_str_check = user_str_check))
             
-            ip_address = socket.gethostbyname(socket.gethostname())
-
-
-            return redirect(url_for('longurl'))
-
+            else:
+                flash('wrong')
     return render_template('login.html', form = login_form)
 
 @app.route('/logout', methods=['GET'])
@@ -139,9 +143,9 @@ def logout():
     flash('You have logged out successfully', 'success')
     return redirect(url_for('login'))
 
-@app.route('/longurl', methods=['POST','GET'])
+@app.route('/longurl/<user_str_check>', methods=['POST','GET'])
 #@login_required
-def longurl():
+def longurl(user_str_check):
         if request.method == 'POST':
             url_recieved = request.form['nm']
             found_url = Urls.query.filter_by(long = url_recieved).first()
@@ -166,23 +170,22 @@ def display_short_url(url):
 
 @app.route('/staticsimple')
 def statisticsimple():
-    #if request.method == 'POST':
-    n = 0
-    maxi = db.session.query(db.func.max(Urls.id)).scalar()
-    url_dict = {}
-    url_dict['url']=list()
-    url_dict['counts']=list()
-    for i in range(maxi):
-        n += 1
-        url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
-        if not url_name in url_dict['url']:
-            url_count = Day.query.where(Day.urls_id == n).count() # count the url
-            url_counts = str(url_count)
-        url_dict['url'].append(url_name)
-        url_dict['counts'].append(url_counts)
-    url_dict = zip(url_dict['url'], url_dict['counts']) # groups into tapple
+        n = 0
+        maxi = db.session.query(db.func.max(Urls.id)).scalar()
+        url_dict = {}
+        url_dict['url']=list()
+        url_dict['counts']=list()
+        for i in range(maxi):
+            n += 1
+            url_name =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+            if not url_name in url_dict['url']:
+                url_count = Day.query.where(Day.urls_id == n).count() # count the url
+                url_counts = str(url_count)
+            url_dict['url'].append(url_name)
+            url_dict['counts'].append(url_counts)
+        url_dict = zip(url_dict['url'], url_dict['counts']) # groups into tapple
 
-    return render_template('staticsimple.html', url_dict = url_dict)
+        return render_template('staticsimple.html', url_dict = url_dict)
 
 """    else:
         if not current_user.is_authenticated:
