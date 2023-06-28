@@ -9,6 +9,12 @@ from flask_login import LoginManager, UserMixin, login_user, current_user, logou
 from wtform_fields import *
 import ipapi
 
+""" a user will have their own profile where they can create their short urls
+    they will see the amount of urls created (they have personally created) 
+    and how much they can create
+    interface like in spotify
+"""
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
@@ -20,15 +26,18 @@ db = SQLAlchemy(app)
 login = LoginManager(app)
 login.init_app(app)
 
+# db for url / to shoten url
 class Urls(db.Model):
     id = db.Column('id', db.Integer, primary_key = True)
     long = db.Column('long', db.String())
     short = db.Column('short', db.String(8))
     days = db.relationship('Day', backref='url', uselist=False)
+    prem = db.relationship('Premium', backref='urls', uselist=False)
     def __init__(self, long, short):
         self.long = long
         self.short = short
 
+#db to build static / the usage if each url
 class Day(db.Model):
     id = db.Column(db.Integer, primary_key = True, autoincrement=True)
     urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable=False)
@@ -37,15 +46,20 @@ class Day(db.Model):
     def __init__(self, url):
         self.url = url
 
+#db for a user / to login / register
 class User(UserMixin, db.Model):
     id = db.Column('id', db.Integer, primary_key = True)
     username = db.Column('username', db.String(25), unique = True, nullable = False)
     password = db.Column('password', db.String(), nullable = False)
+    ip_add = db.Column(db.String())
     connections = db.relationship('Connection', backref='users', uselist=False)
-    def __init__(self, username, password):
+    prem = db.relationship('Premium', backref='user', uselist=False)
+    def __init__(self, username, password, ip_add):
         self.username = username
         self.password = password
+        self.ip_add = ip_add
 
+#db checks when user logs bt ip adress in as cookies files
 class Connection(db.Model):
     id = db.Column(db.Integer, primary_key = True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
@@ -56,6 +70,18 @@ class Connection(db.Model):
         self.users = users
         self.ip_add = ip_add
         self.rand_str = rand_str
+
+#db to see how much urls does user has
+class Premium(db.Model):
+    id = db.Column(db.Integer, primary_key = True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable = False)
+    urls_id = db.Column(db.Integer, db.ForeignKey('urls.id'), nullable=False)
+    creation_date = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+    users = db.relationship('User')
+    url = db.relationship('Urls')
+    def __init__(self, users, url):
+        self.users = users
+        self.url = url
 
 @app.before_first_request
 def create_table():
@@ -81,7 +107,27 @@ def rand_strs():
         previos = ''.join(j)
         rand_srting = Connection.query.filter_by(rand_str = previos).first()
         if not rand_srting:
-            return previos    
+            return previos
+        
+def delete_date():
+    now = datetime.datetime.now()
+    date_cr = Premium.query.filter(Premium.creation_date).all()
+    difference = []
+    j = []
+    n = 0
+    for i in date_cr:
+        n += 1
+        j.append(now - i.creation_date)
+        #for jj in j:
+            #remove = Premium.delete().where(Premium.creation_date)
+            #remove.execute()
+"""    for i in date_cr:
+        difference.append(now - i.creation_date) 
+        for j in difference:
+            if j.days == 1:
+                remove.append(j)
+                db.session.delete(date_cr)
+                db.session.commit()"""
 
 @login.user_loader
 def load_user(id):
@@ -98,7 +144,8 @@ def home():
         
         hashed_password = pbkdf2_sha256.hash(password) # hash the password
 
-        user = User(username = username, password = hashed_password)
+        ip_addr = request.remote_addr
+        user = User(username = username, ip_add = ip_addr, password = hashed_password)
         db.session.add(user)
         db.session.commit() # adding user
         # user registration was succesful
@@ -128,9 +175,9 @@ def login():
             user_check = Connection.query.filter_by(ip_add = ip_addr).first() # checks if there is this ip
             user_name = User.query.where(User.username == login_form.username.data).first()
             user_str = Connection.query.where(Connection.user_id == user_name.id).first()
-            user_str_check = user_str.rand_str
+            user_str_check = user_check.rand_str
             if user_check:
-                return redirect(url_for('longurl', user_str_check = user_str_check))
+                return redirect(url_for('profilepage'))
             
             else:
                 flash('wrong')
@@ -141,27 +188,80 @@ def logout():
 
     logout_user()
     flash('You have logged out successfully', 'success')
+    
     return redirect(url_for('login'))
 
-@app.route('/longurl/<user_str_check>', methods=['POST','GET'])
+@app.route('/profilepage', methods = ['POST','GET'])
+def profilepage():
+    if not current_user.is_authenticated:
+        flash('Please login.', 'danger')
+        return redirect(url_for('login'))
+    
+    else:
+        #delete_date()
+        ip_addr = request.remote_addr
+        user = User.query.where(User.ip_add == ip_addr).scalar()
+        #subscription = Premium.query.where(Premium.user_id == user.id).order_by(Premium.creation_date)
+        n = 0
+        maxi = db.session.query(db.func.max(Urls.id)).scalar()
+        url_dict = {}
+        url_dict['long_url']=list()
+        url_dict['short_url']=list()
+        for i in range(maxi):
+            n += 1
+            url_long =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+            url_short =  db.session.query(Urls.short).where(Urls.id == n).scalar()
+            if not url_long in url_dict['long_url'] and not url_short in url_dict['short_url']:
+                url_dict['long_url'].append(url_long)
+                url_dict['short_url'].append(url_short)
+        url_dict = zip(url_dict['long_url'], url_dict['short_url'])
+        
+    return render_template('profilepage.html', url_dict = url_dict)
+
+@app.route('/longurl', methods=['POST','GET'])
 #@login_required
-def longurl(user_str_check):
-        if request.method == 'POST':
-            url_recieved = request.form['nm']
-            found_url = Urls.query.filter_by(long = url_recieved).first()
-            if found_url:
-                return redirect(url_for('display_short_url',url = found_url.short))
-            else:
-                short_url = shorten_url()
-                new_url = Urls(url_recieved, short_url)
+def longurl():
+    if request.method == 'POST':
+        url_recieved = request.form['nm']
+
+        #recognise user by ip address to check how many links useer has
+        ip_addr = request.remote_addr
+        user = User.query.where(User.ip_add == ip_addr).scalar()
+        subscription = Premium.query.where(Premium.user_id == user.id).count()
+        short_url = shorten_url()
+        new_url = Urls(url_recieved, short_url)
+            
+        #if needs premium
+        if subscription <= 4:
+            try:
+                #shorten url
                 db.session.add(new_url)
                 db.session.commit()
-                return redirect(url_for('display_short_url',url = short_url))
+
+                #relating created shorten url to a user
+                sub = Premium(users = user, url = new_url)
+                db.session.add(sub)
+                db.session.commit()
+
+            except IntegrityError:
+                db.session.rollback()
+                db.session.add(new_url)
+                db.session.commit()
+
+            return redirect(url_for('display_short_url',url = short_url))
+                
         else:
-            if not current_user.is_authenticated:
-                flash('Please login.', 'danger')
-                return redirect(url_for('login'))
-        return render_template('longurl.html')
+
+            flash('You have already 5 urls. Subscribe to shorten more urls.')
+            return render_template('longurl.html')
+    
+    else:
+
+        if not current_user.is_authenticated:
+            flash('Please login.', 'danger')
+            return redirect(url_for('login'))
+
+    return render_template('longurl.html')
             
 
 @app.route('/display/<url>')
