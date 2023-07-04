@@ -108,26 +108,6 @@ def rand_strs():
         rand_srting = Connection.query.filter_by(rand_str = previos).first()
         if not rand_srting:
             return previos
-        
-def delete_date():
-    now = datetime.datetime.now()
-    date_cr = Premium.query.filter(Premium.creation_date).all()
-    difference = []
-    j = []
-    n = 0
-    for i in date_cr:
-        n += 1
-        j.append(now - i.creation_date)
-        #for jj in j:
-            #remove = Premium.delete().where(Premium.creation_date)
-            #remove.execute()
-"""    for i in date_cr:
-        difference.append(now - i.creation_date) 
-        for j in difference:
-            if j.days == 1:
-                remove.append(j)
-                db.session.delete(date_cr)
-                db.session.commit()"""
 
 @login.user_loader
 def load_user(id):
@@ -157,7 +137,7 @@ def home():
             db.session.add(reg_check)
             db.session.commit()
 
-        flash('Registered successfully. Please login.', 'success' + ip_addr)
+        flash('Registered successfully. Please login.', 'success')
         return redirect(url_for('login'))
 
     return render_template('home.html', form = reg_form)
@@ -198,23 +178,25 @@ def profilepage():
         return redirect(url_for('login'))
     
     else:
-        #delete_date()
         ip_addr = request.remote_addr
         user = User.query.where(User.ip_add == ip_addr).scalar()
-        #subscription = Premium.query.where(Premium.user_id == user.id).order_by(Premium.creation_date)
         n = 0
         maxi = db.session.query(db.func.max(Urls.id)).scalar()
-        url_dict = {}
-        url_dict['long_url']=list()
-        url_dict['short_url']=list()
-        for i in range(maxi):
-            n += 1
-            url_long =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
-            url_short =  db.session.query(Urls.short).where(Urls.id == n).scalar()
-            if not url_long in url_dict['long_url'] and not url_short in url_dict['short_url']:
-                url_dict['long_url'].append(url_long)
-                url_dict['short_url'].append(url_short)
-        url_dict = zip(url_dict['long_url'], url_dict['short_url'])
+        if maxi == None:
+            flash('Shorten url to see your profile.')
+            return redirect(url_for('longurl'))
+        else:
+            url_dict = {}
+            url_dict['long_url']=list()
+            url_dict['short_url']=list()
+            for i in range(maxi):
+                n += 1
+                url_long =  db.session.query(Urls.long).where(Urls.id == n).scalar() # the name of the link
+                url_short =  db.session.query(Urls.short).where(Urls.id == n).scalar()
+                if not url_long in url_dict['long_url'] and not url_short in url_dict['short_url']:
+                    url_dict['long_url'].append(url_long)
+                    url_dict['short_url'].append(url_short)
+            url_dict = zip(url_dict['long_url'], url_dict['short_url'])
         
     return render_template('profilepage.html', url_dict = url_dict)
 
