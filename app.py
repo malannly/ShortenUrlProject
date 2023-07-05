@@ -8,6 +8,7 @@ from passlib.hash import pbkdf2_sha256
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from wtform_fields import *
 import ipapi
+from task import delete_url
 
 """ a user will have their own profile where they can create their short urls
     they will see the amount of urls created (they have personally created) 
@@ -224,6 +225,7 @@ def longurl():
                 sub = Premium(users = user, url = new_url)
                 db.session.add(sub)
                 db.session.commit()
+                #task = delete_url(url=sub)
 
             except IntegrityError:
                 db.session.rollback()
