@@ -8,7 +8,9 @@ from passlib.hash import pbkdf2_sha256
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from wtform_fields import *
 import ipapi
-from task import delete_url
+from celery import Celery, shared_task
+from __init__ import celery_init_app
+#from flask_celery import make_celery
 
 """ a user will have their own profile where they can create their short urls
     they will see the amount of urls created (they have personally created) 
@@ -17,15 +19,29 @@ from task import delete_url
 """
 
 app = Flask(__name__)
+app.config['CELERY_BROKER_URL'] = 'amqp://127.0.0.1//'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'dfghjkjhuisegrhbnkjir'
+
+# celery configuration
+#celery = make_celery(app)
+
 db = SQLAlchemy(app)
 
 # building / configurate flask login
 login = LoginManager(app)
 login.init_app(app)
+
+app.config.from_mapping(
+    CELERY=dict(
+        broker_url="redis://localhost",
+        result_backend="redis://localhost",
+        task_ignore_result=True,
+    ),
+)
+celery_app = celery_init_app(app)
 
 # db for url / to shoten url
 class Urls(db.Model):
@@ -113,6 +129,12 @@ def rand_strs():
 @login.user_loader
 def load_user(id):
     return User.query.get(int(id)) # hets user's id, has to be an integer
+
+# celery task
+@shared_task(bind=True)
+def delete_url(url):
+    db.session.delete(url)
+    db.session.commit()
 
 @app.route('/', methods=['POST','GET'])
 def home():
@@ -225,7 +247,7 @@ def longurl():
                 sub = Premium(users = user, url = new_url)
                 db.session.add(sub)
                 db.session.commit()
-                #task = delete_url(url=sub)
+                #task = delete_url.apply_async(url=sub)
 
             except IntegrityError:
                 db.session.rollback()
