@@ -8,9 +8,6 @@ from passlib.hash import pbkdf2_sha256
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 from wtform_fields import *
 import ipapi
-from celery import Celery, shared_task
-from __init__ import celery_init_app
-#from flask_celery import make_celery
 
 """ a user will have their own profile where they can create their short urls
     they will see the amount of urls created (they have personally created) 
@@ -19,29 +16,18 @@ from __init__ import celery_init_app
 """
 
 app = Flask(__name__)
-app.config['CELERY_BROKER_URL'] = 'amqp://127.0.0.1//'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///urls.db'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'dfghjkjhuisegrhbnkjir'
 
-# celery configuration
-#celery = make_celery(app)
+#app.config["CELERY_BROKER_URL"] = "redis://localhost:6379"
 
 db = SQLAlchemy(app)
 
 # building / configurate flask login
 login = LoginManager(app)
 login.init_app(app)
-
-app.config.from_mapping(
-    CELERY=dict(
-        broker_url="redis://localhost",
-        result_backend="redis://localhost",
-        task_ignore_result=True,
-    ),
-)
-celery_app = celery_init_app(app)
 
 # db for url / to shoten url
 class Urls(db.Model):
@@ -130,12 +116,6 @@ def rand_strs():
 def load_user(id):
     return User.query.get(int(id)) # hets user's id, has to be an integer
 
-# celery task
-@shared_task(bind=True)
-def delete_url(url):
-    db.session.delete(url)
-    db.session.commit()
-
 @app.route('/', methods=['POST','GET'])
 def home():
     
@@ -190,6 +170,7 @@ def login():
 def logout():
 
     logout_user()
+
     flash('You have logged out successfully', 'success')
     
     return redirect(url_for('login'))
