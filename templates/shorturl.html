@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block title %}Shorten url{% endblock %}
+
+{% block content %}
+    <center>
+        <h1>Here`s the shorten url</h1>
+        <br>
+        <h4>
+            <a href="http://127.0.0.1:5000/{{short_url_display}}">
+            http://127.0.0.1:5000/{{short_url_display}}</a>
+        </h4>
+    </center>
+{% endblock %}

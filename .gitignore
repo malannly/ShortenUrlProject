@@ -12,3 +12,4 @@ celerybeat-schedule.dat
 celerybeat-schedule.dir
 tasks/__pycache__/
 __pycache__/
+user.db
