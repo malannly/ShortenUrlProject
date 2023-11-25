@@ -1,4 +1,4 @@
-from tasks.celery_app import app
+from celery_app import app
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy(app)

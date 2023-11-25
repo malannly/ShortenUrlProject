@@ -21,8 +21,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///user.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SECRET_KEY'] = 'dfghjkjhuisegrhbnkjir'
 
-#app.config["CELERY_BROKER_URL"] = "redis://localhost:6379"
-
 db = SQLAlchemy(app)
 
 # building / configurate flask login

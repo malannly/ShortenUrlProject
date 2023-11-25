@@ -1,9 +1,9 @@
 from celery import Celery
 from celery.schedules import crontab
 
-#broker='sqla+sqlite:///urlsdb.sqlite'
+#broker="amqp://user:password@remote.server.com:port//vhost"
 
-app = Celery('celery_app', broker='redis://127.0.0.1:6379/0', include=['tasks'])
+app = Celery('celery_app', broker='amqp://guest:guest@31.153.10.14:5672/admin', include=['tasks'])
 app.conf.beat_schedule = {
     'delete_url' : {
         'task' : 'delete_url',
