@@ -1,0 +1,41 @@
+{% from 'form_helper.html' import displayField %}
+
+{% extends 'base.html' %}
+
+{% block title %}Register{% endblock %}
+
+{% block content %}
+
+<center>
+<h2>Profile page</h2>
+<br>
+<p>You can create only 5 short urls and the url will be deleted in 30 days. 
+   To have more opportunities you need to subscribe 7 dollars a month.
+</p>
+
+<br>
+
+<table border="1">
+    <tr>
+        <th>long_url</th>
+        <th>short_url</th>
+    </tr>
+    {% for row in url_dict %}
+        <tr>
+            <td><a href="{{row[0]}}" title="{{row[0]}}">{{ row[0][0:21] }}...</a></td> 
+            <!-- tojson - returns string (строку) formated -->
+            <td><a href="http://127.0.0.1:5000/{{row[1]}}" title="{{row[1]}}">{{ 'http://127.0.0.1:5000/'+row[1] }}</a></td>
+        </tr>
+    {% endfor %}
+</table>
+
+<br>
+<br>
+
+<div class="btn btn-primary mx-3">
+    <a href="http://127.0.0.1:5000/logout" class="btn btn-primary" style="color: rgb(255, 255, 255);">Logout</a>
+</div>
+
+</center>
+
+{% endblock %}
