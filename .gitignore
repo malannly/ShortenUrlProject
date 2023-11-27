@@ -13,3 +13,4 @@ celerybeat-schedule.dir
 tasks/__pycache__/
 __pycache__/
 user.db
+make_cel.py
