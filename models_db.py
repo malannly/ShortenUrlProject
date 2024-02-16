@@ -13,8 +13,6 @@ Urls = Table('Urls',metadata,
             Column('long', String()),
             Column('short', String(8))
             )
-'''    days = db.relationship('Day', backref='url', uselist=False)
-    prem = db.relationship('Premium', backref='urls', uselist=False)'''
 
 #user db
 User = Table('User', metadata,
