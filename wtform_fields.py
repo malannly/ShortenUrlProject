@@ -2,13 +2,18 @@ from wsgiref.validate import validator
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, EqualTo, ValidationError
-from app import User
+from models_db import User
+from create_eng import get_connection
+from sqlalchemy import select
 from passlib.hash import pbkdf2_sha256
 
 def invalid_credentials(form, field):
     username_entered = form.username.data
     password_entered = field.data
-    user_object = User.query.filter_by(username = username_entered).first()
+    engine = get_connection()
+    with engine.connect() as connection:
+        query = select([User]).where(User.c.username == username_entered)
+        user_object = query.execute().fetchone()
     if user_object is None:
         raise ValidationError('Username or password is incorrect.')
     elif not pbkdf2_sha256.verify(password_entered, user_object.password):
@@ -27,7 +32,10 @@ class RegistrationForm(FlaskForm):
     submit_button = SubmitField('Create')
 
     def validate_username(self,username):
-            user_object = User.query.filter_by(username = username.data).first() # check if the username has already existed
+            engine = get_connection()
+            with engine.connect() as connection:
+                query = select([User]).where(User.c.username == username.data) # check if the username has already existed
+                user_object = query.execute().fetchone()
             if user_object:
                 raise ValidationError('This username already exists. Select another username.')
 
