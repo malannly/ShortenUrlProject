@@ -1,23 +1,35 @@
 from wsgiref.validate import validator
 from flask_wtf import FlaskForm
+from sqlalchemy.pool import QueuePool
 from wtforms import StringField, PasswordField, SubmitField
 from wtforms.validators import InputRequired, Length, EqualTo, ValidationError
 from models_db import User
-from create_eng import get_connection
-from sqlalchemy import select
+from sqlalchemy import select, create_engine
 from passlib.hash import pbkdf2_sha256
+
+engine = create_engine("sqlite:///urluser.db", poolclass=QueuePool)
+
+conn = engine.connect()
+
+def get_connection():
+    return engine.connect()
+
+def close_connection(conn):
+    conn.close()
 
 def invalid_credentials(form, field):
     username_entered = form.username.data
     password_entered = field.data
     engine = get_connection()
-    with engine.connect() as connection:
+    try:
         query = select([User]).where(User.c.username == username_entered)
-        user_object = query.execute().fetchone()
-    if user_object is None:
-        raise ValidationError('Username or password is incorrect.')
-    elif not pbkdf2_sha256.verify(password_entered, user_object.password):
-        raise ValidationError('Username or password is incorrect.')
+        user_object = conn.execute(query).fetchone()
+        if user_object is None:
+            raise ValidationError('Username or password is incorrect.')
+        elif not pbkdf2_sha256.verify(password_entered, user_object.password):
+            raise ValidationError('Username or password is incorrect.')
+    finally:
+        close_connection(conn)
 
 class RegistrationForm(FlaskForm):
     username = StringField('username_label', validators = [
@@ -33,11 +45,13 @@ class RegistrationForm(FlaskForm):
 
     def validate_username(self,username):
             engine = get_connection()
-            with engine.connect() as connection:
+            try:
                 query = select([User]).where(User.c.username == username.data) # check if the username has already existed
-                user_object = query.execute().fetchone()
-            if user_object:
-                raise ValidationError('This username already exists. Select another username.')
+                user_object = conn.execute(query).fetchone()
+                if user_object:
+                    raise ValidationError('This username already exists. Select another username.')
+            finally:
+                close_connection(conn)
 
 class LoginForm(FlaskForm):
     username = StringField('username_label', validators = [

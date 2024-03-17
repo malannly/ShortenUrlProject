@@ -2,10 +2,20 @@ from models_db import *
 from wtform_fields import *
 from sqlalchemy.exc import IntegrityError
 import random, string
-#from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.pool import QueuePool
 from sqlalchemy import select, func
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, g
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
+
+engine = create_engine("sqlite:///urluser.db", poolclass=QueuePool)
+
+conn = engine.connect()
+
+def get_connection():
+    return engine.connect()
+
+def close_connection(conn):
+    conn.close()
 
 def shorten_url():
     while True:
@@ -14,7 +24,8 @@ def shorten_url():
             j.append(random.choice(string.ascii_uppercase + string.ascii_lowercase))
             j.append(str(random.randint(0,9)))
         previos = ''.join(j)
-        short_url = select([Urls]).filter_by(short = previos).fetchone()
+        query = select([Urls]).filter_by(short = previos)
+        short_url = conn.execute(query).fetchone()
         if not short_url:
             return previos
 
@@ -25,9 +36,14 @@ def rand_strs():
             j.append(random.choice(string.ascii_uppercase + string.ascii_lowercase))
             j.append(str(random.randint(0,9)))
         previos = ''.join(j)
-        rand_srting = select([Check]).filter_by(short = previos).fetchone()
-        if not rand_srting:
-            return previos
+        conn = get_connection()
+        try:
+            query = select([Check]).filter_by(random_str = previos)
+            rand_string = conn.execute(query).fetchone()
+            if not rand_string:
+                return previos
+        finally:
+            close_connection(conn)
         
 app = Flask(__name__)
 #db = SQLAlchemy(app)
@@ -44,7 +60,6 @@ def load_user(id):
 
 @app.route('/', methods=['POST','GET'])
 def home():
-    
     reg_form = RegistrationForm()
 
     if reg_form.validate_on_submit():
@@ -53,22 +68,26 @@ def home():
         
         hashed_password = pbkdf2_sha256.hash(password) # hash the password
 
-        ip_addr = request.remote_addr
-        user = User(username = username, ip_add = ip_addr, password = hashed_password)
-        session.add(user)
-        session.commit() # adding user
-        # user registration was succesful
-        
-        if user:
+        conn = get_connection()
+        try:
+            # Insert into 'user' table
+            user_id_select = select([User.c.user_id]).where(User.c.username == username)
+            user_id_result = conn.execute(user_id_select)
+            user_id = user_id_result.scalar()
+            
+
+            # Insert into 'check' table
             ip_addr = request.remote_addr
             rnd_str = rand_strs()
-            reg_check = Check(users = user, ip_add = ip_addr, rand_str = rnd_str)
-            session.add(reg_check)
-            session.commit()
+            check_insert = Check.insert().values(user_id=user_id, ip_address=ip_addr, random_str=rnd_str)
+            conn.execute(check_insert)
 
-        flash('Registered successfully. Please login.', 'success')
-        return redirect(url_for('login'))
-    return render_template('home.html', form = reg_form)
+            flash('Registered successfully. Please login.', 'success')
+            return redirect(url_for('login'))
+        finally:
+            close_connection(conn)
+            
+    return render_template('home.html', form=reg_form)
     
 @app.route('/login', methods=['POST','GET'])
 def login():
@@ -76,19 +95,27 @@ def login():
     login_form = LoginForm()
 
     if login_form.validate_on_submit():
-        user_object = select([User]).filter_by(username = login_form.username.data).fetchone()
-        login_user(user_object, remember = True)
-        if current_user.is_authenticated:
-            ip_addr = request.remote_addr # gets the ip
-            user_check = select([Check]).filter_by(ip_address = ip_addr).fetchone() # checks if there is this ip
-            user_name = select([User]).where(User.c.username == login_form.username.data).fetchone()
-            user_str = select([Check]).where(Check.c.user_id == user_name.id).fetchone()
-            user_str_check = user_check.rand_str
-            if user_check:
-                return redirect(url_for('profilepage'))
-            
-            else:
-                flash('wrong')
+        conn = get_connection()
+        try:
+            user_object = select([User]).filter_by(username = login_form.username.data)
+            user_object = conn.execute(user_object).fetchone()
+            if user_object and user_object.is_active:
+                login_user(user_object, remember = True)
+                if current_user.is_authenticated:
+                    ip_addr = request.remote_addr # gets the ip
+                    user_check = select([Check]).filter_by(ip_address = ip_addr) # checks if there is this ip
+                    user_check = conn.execute(user_check).fetchone()
+                    user_name = select([User]).where(User.c.username == login_form.username.data)
+                    user_name = conn.execute(user_name).fetchone()
+                    user_str = select([Check]).where(Check.c.user_id == user_name.id)
+                    user_str = conn.execute(user_str).fetchone()
+                    user_str_check = user_check.rand_str
+                    if user_check:
+                        return redirect(url_for('profilepage'))        
+                    else:
+                        flash('username or password is wrong or does not exist, please try again')
+        finally:
+            close_connection(conn)
     return render_template('login.html', form = login_form)
 
 @app.route('/logout', methods=['GET'])
@@ -110,7 +137,8 @@ def profilepage():
         ip_addr = request.remote_addr
         #user = User.query.where(User.ip_add == ip_addr).scalar()
         n = 0
-        maxi = session.query(func.max(Urls.id)).scalar()
+        query = select([func.max(Urls.c.id)])
+        maxi = conn.execute(query).scalar()
         if maxi == None:
             flash('Shorten url to see your profile.')
             return redirect(url_for('longurl'))
@@ -120,8 +148,10 @@ def profilepage():
             url_dict['short_url']=list()
             for i in range(maxi):
                 n += 1
-                url_long = select([Urls.c.long]).where(Urls.c.id == n).scalar() # the name of the link
-                url_short = select([Urls.c.short]).where(Urls.c.id == n).scalar() 
+                query_1 = select([Urls.c.long]).where(Urls.c.id == n)
+                url_long = conn.execute(query_1).scalar() # the name of the link
+                query_2 = select([Urls.c.short]).where(Urls.c.id == n)
+                url_short = conn.execute(query_2).scalar()
                 if not url_long in url_dict['long_url'] and not url_short in url_dict['short_url']:
                     url_dict['long_url'].append(url_long)
                     url_dict['short_url'].append(url_short)
@@ -135,9 +165,11 @@ def longurl():
     if request.method == 'POST':
         url_recieved = request.form['nm']
 
-        #recognise user by ip address to check how many links useer has
+        #recognise user by ip address to check how many links user has
         ip_addr = request.remote_addr
-        user = select([User]).where(User.c.ip_add == ip_addr)
+        query = select([Check]).where(Check.c.ip_address == ip_addr)
+        user = conn.execute(query).scalar()
+        subscription = select([func.count(Premium.c.user_id)])
         subscription = session.query(func.count(Premium.user_id)).filter(Premium.user_id == user.id).scalar()
         short_url = shorten_url()
         new_url = Urls(url_recieved, short_url)
@@ -146,6 +178,7 @@ def longurl():
         if subscription <= 4:
             try:
                 #shorten url
+                url_insert = Premium.insert().values()
                 session.add(new_url)
                 session.commit()
 
