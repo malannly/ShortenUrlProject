@@ -3,6 +3,7 @@ back_up.py
 backup.py
 testing.py
 settings.py
+models.py
 /templates/back_up.html
 _pycache_
 instance

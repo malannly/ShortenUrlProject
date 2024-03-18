@@ -4,7 +4,7 @@ from sqlalchemy.exc import IntegrityError
 import random, string
 from sqlalchemy.pool import QueuePool
 from sqlalchemy import select, func
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash, g
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, flash
 from flask_login import LoginManager, UserMixin, login_user, current_user, logout_user, login_required
 
 engine = create_engine("sqlite:///urluser.db", poolclass=QueuePool)
